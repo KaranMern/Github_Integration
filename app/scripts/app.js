@@ -6,14 +6,18 @@ async function init() {
    client = await app.initialized();
 }
 
+const ghubAccessToken = '<<GitHub-Access-Token>>'; // Replace with your GitHub access token
+const repoOwner = '<<Repo-Owner-Name>>'; // Replace with the owner of the repository
+const repoName = '<<Repo-Name>>'; // Replace with the name of the repository
+const domain = "<<Domain-Name-FreshDesk>>";
+const apiKey = "<<API-KEY-FreshDesk>>"; //FreshDesk API Key
+const closedIssuesURL = `https://api.github.com/repos/${repoOwner}/${repoName}/issues?state=closed`;
+
 
 function searchIssueForFreshdeskTicket(issues, ticketId) {
-   // Iterate through each issue
    for (const issue of issues) {
-      // Extract Freshdesk ticket ID from the body of the issue
       console.log(issue.body);
       const freshdeskTicketId = getFreshdeskTicketId(issue.body);
-      // If a Freshdesk ticket ID is found and it matches the passed ticket ID, return 1
       if (freshdeskTicketId && parseInt(freshdeskTicketId) === ticketId) {
          
          return 1;
@@ -66,17 +70,14 @@ async function getIssues() {
 
 
 async function createIssue(title, body, freshdeskTicketId, label) {
-   const accessToken = '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'; // Replace with your GitHub access token
-   const repositoryOwner = 'KaranMern'; // Replace with the owner of the repository
-   const repositoryName = 'Issues'; // Replace with the name of the repository
 
    // Include Freshdesk ticket ID in GitHub issue body
    body += `\n\nFreshdesk Ticket ID: ${freshdeskTicketId}`;
 
-   const response = await fetch(`https://api.github.com/repos/${repositoryOwner}/${repositoryName}/issues`, {
+   const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/issues`, {
       method: 'POST',
       headers: {
-         'Authorization': `Bearer ${accessToken}`,
+         'Authorization': `Bearer ${ghubAccessToken}`,
          'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -95,19 +96,16 @@ async function createIssue(title, body, freshdeskTicketId, label) {
 }
 
 async function closeIssuesWithTicketId(issues, ticketId) {
-   const accessToken = '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'; // Replace with your GitHub access token
-   const repositoryOwner = 'KaranMern'; // Replace with the owner of the repository
-   const repositoryName = 'Issues'; // Replace with the name of the repository
 
    for (const issue of issues) {
       const freshdeskTicketId = getFreshdeskTicketId(issue.body);
 
       if (freshdeskTicketId && parseInt(freshdeskTicketId) === ticketId) {
          // Close the issue
-         const response = await fetch(`https://api.github.com/repos/${repositoryOwner}/${repositoryName}/issues/${issue.number}`, {
+         const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/issues/${issue.number}`, {
             method: 'PATCH',
             headers: {
-               'Authorization': `Bearer ${accessToken}`,
+               'Authorization': `Bearer ${ghubAccessToken}`,
                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
@@ -132,11 +130,9 @@ function getFreshdeskTicketId(issueBody) {
 }
 
 async function closeFreshdeskTicket(ticketId) {
+   const closeURL = `https://${domain}.freshdesk.com/api/v2/tickets/${ticketId}`;
 
-   const domain = "ksolutions";
-   const apiKey = "p79byeSQFtxTu0gIyH5U";
-   const url = `https://${domain}.freshdesk.com/api/v2/tickets/${ticketId}`;
-   const response = await fetch(url, {
+   const response = await fetch(closeURL, {
       method: 'PUT',
       headers: {
          'Authorization': `Basic ${btoa(apiKey + ":")}`, // Encoding API key for Basic Auth
@@ -158,14 +154,9 @@ async function closeFreshdeskTicket(ticketId) {
 
 async function closeTicket(ticketId) {
 
-   const accessToken = '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'; // Replace with your GitHub access token
-   const repoOwner = 'KaranMern'; // Replace with the owner of the repository
-   const repoName = 'Issues';
-   const url = `https://api.github.com/repos/${repoOwner}/${repoName}/issues?state=closed`;
-
-   const response = await fetch(url, {
+   const response = await fetch(closedIssuesURL, {
       headers: {
-         'Authorization': `Bearer ${accessToken}`,
+         'Authorization': `Bearer ${ghubAccessToken}`,
          'Content-Type': 'application/json'
       }
    });
@@ -181,11 +172,8 @@ async function closeTicket(ticketId) {
 }
 
 async function getTicketConversations(ticketId) {
-   const domain = "ksolutions";
-   const apiKey = "p79byeSQFtxTu0gIyH5U";
-   const url = `https://${domain}.freshdesk.com/api/v2/tickets/${ticketId}?include=conversations`;
-
-   const response = await fetch(url, {
+   const conversationsURL = `https://${domain}.freshdesk.com/api/v2/tickets/${ticketId}?include=conversations`;
+   const response = await fetch(conversationsURL, {
       method: 'GET',
       headers: {
          'Authorization': `Basic ${btoa(apiKey + ":")}` // Encoding API key for Basic Auth
