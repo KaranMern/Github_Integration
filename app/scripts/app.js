@@ -6,20 +6,16 @@ async function init() {
    client = await app.initialized();
 }
 
-const ghubAccessToken = '<<GitHub-Access-Token>>'; // Replace with your GitHub access token
-const repoOwner = '<<Repo-Owner-Name>>'; // Replace with the owner of the repository
-const repoName = '<<Repo-Name>>'; // Replace with the name of the repository
-const domain = "<<Domain-Name-FreshDesk>>";
-const apiKey = "<<API-KEY-FreshDesk>>"; //FreshDesk API Key
-const closedIssuesURL = `https://api.github.com/repos/${repoOwner}/${repoName}/issues?state=closed`;
-
 
 function searchIssueForFreshdeskTicket(issues, ticketId) {
+   // Iterate through each issue
    for (const issue of issues) {
-      console.log(issue.body);
+      // Extract Freshdesk ticket ID from the body of the issue
+      //console.log(issue.body);
       const freshdeskTicketId = getFreshdeskTicketId(issue.body);
+      // If a Freshdesk ticket ID is found and it matches the passed ticket ID, return 1
       if (freshdeskTicketId && parseInt(freshdeskTicketId) === ticketId) {
-         
+
          return 1;
       }
    }
@@ -39,14 +35,20 @@ async function applyChanges() {
       "Refund": "help wanted"
    };
    const label = label_dict[contactData.ticket.type];
-   closeTicket(contactData.ticket.id);
-   getIssues()
+   console.log(contactData.ticket.status_label);
+   if (contactData.ticket.status_label === "Open" ){
+       closeTicket(contactData.ticket.id);
+   }
+   else{
+    getIssues()
       .then(data => {
          if (searchIssueForFreshdeskTicket(data, contactData.ticket.id) === 0) {
             createIssue(contactData.ticket.subject, contactData.ticket.description, contactData.ticket.id, label);
          } else if (contactData.ticket.status_label === "Closed") {
-            closeIssuesWithTicketId(data, contactData.ticket.id)
-
+            openOrCloseIssueWithTicketId(data, contactData.ticket.id, "closed");
+         }
+         else if (contactData.ticket.status_label === "Open") {
+            openOrCloseIssueWithTicketId(data, contactData.ticket.id, "open");
          }
 
       })
@@ -54,8 +56,10 @@ async function applyChanges() {
          console.error('Error fetching issues:', error);
       });
 
+   }   //getTicketConversations(contactData.ticket.id);
 
 }
+
 
 async function logIssues() {
    fetch('https://api.github.com/repos/KaranMern/Issues/issues')
@@ -70,14 +74,17 @@ async function getIssues() {
 
 
 async function createIssue(title, body, freshdeskTicketId, label) {
+   const accessToken = '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'; // Replace with your GitHub access token
+   const repositoryOwner = 'KaranMern'; // Replace with the owner of the repository
+   const repositoryName = 'Issues'; // Replace with the name of the repository
 
    // Include Freshdesk ticket ID in GitHub issue body
    body += `\n\nFreshdesk Ticket ID: ${freshdeskTicketId}`;
 
-   const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/issues`, {
+   const response = await fetch(`https://api.github.com/repos/${repositoryOwner}/${repositoryName}/issues`, {
       method: 'POST',
       headers: {
-         'Authorization': `Bearer ${ghubAccessToken}`,
+         'Authorization': `Bearer ${accessToken}`,
          'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -95,26 +102,29 @@ async function createIssue(title, body, freshdeskTicketId, label) {
    }
 }
 
-async function closeIssuesWithTicketId(issues, ticketId) {
+async function openOrCloseIssueWithTicketId(issues, ticketId, state) {
+   const accessToken = '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'; // Replace with your GitHub access token
+   const repositoryOwner = 'KaranMern'; // Replace with the owner of the repository
+   const repositoryName = 'Issues'; // Replace with the name of the repository
 
    for (const issue of issues) {
       const freshdeskTicketId = getFreshdeskTicketId(issue.body);
 
       if (freshdeskTicketId && parseInt(freshdeskTicketId) === ticketId) {
          // Close the issue
-         const response = await fetch(`https://api.github.com/repos/${repoOwner}/${repoName}/issues/${issue.number}`, {
+         const response = await fetch(`https://api.github.com/repos/${repositoryOwner}/${repositoryName}/issues/${issue.number}`, {
             method: 'PATCH',
             headers: {
-               'Authorization': `Bearer ${ghubAccessToken}`,
+               'Authorization': `Bearer ${accessToken}`,
                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-               state: 'closed'
+               state: state
             })
          });
 
          if (response.ok) {
-            console.log(`Issue ${issue.number} closed successfully.`);
+            console.log(`Issue ${issue.number} ${state} successfully.`);
          } else {
             console.error(`Failed to close issue ${issue.number}:`, response.statusText);
          }
@@ -124,15 +134,17 @@ async function closeIssuesWithTicketId(issues, ticketId) {
 
 function getFreshdeskTicketId(issueBody) {
    // Regular expression pattern to match Freshdesk ticket IDs
-   const regex = /Freshdesk Ticket ID: (\d+)/;
+   const regex = /Freshdesk Ticket ID: (\d+)/; //d+ means one or more digits
    const match = issueBody.match(regex);
    return match && match.length > 1 ? match[1] : null; // Return null if no ticket ID is found
 }
 
 async function closeFreshdeskTicket(ticketId) {
-   const closeURL = `https://${domain}.freshdesk.com/api/v2/tickets/${ticketId}`;
 
-   const response = await fetch(closeURL, {
+   const domain = "ksolutions";
+   const apiKey = "4vuN2JgVpyew1WpnMgJ";
+   const url = `https://${domain}.freshdesk.com/api/v2/tickets/${ticketId}`;
+   const response = await fetch(url, {
       method: 'PUT',
       headers: {
          'Authorization': `Basic ${btoa(apiKey + ":")}`, // Encoding API key for Basic Auth
@@ -143,7 +155,7 @@ async function closeFreshdeskTicket(ticketId) {
          status: 5
       })
    });
-
+   console.log("In close");
    if (response.ok) {
       console.log(`Ticket ${ticketId} closed successfully.`);
    } else {
@@ -151,12 +163,16 @@ async function closeFreshdeskTicket(ticketId) {
    }
 }
 
-
 async function closeTicket(ticketId) {
 
-   const response = await fetch(closedIssuesURL, {
+   const accessToken = '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'; // Replace with your GitHub access token
+   const repoOwner = 'KaranMern'; // Replace with the owner of the repository
+   const repoName = 'Issues';
+   const url = `https://api.github.com/repos/${repoOwner}/${repoName}/issues?state=closed`;
+
+   const response = await fetch(url, {
       headers: {
-         'Authorization': `Bearer ${ghubAccessToken}`,
+         'Authorization': `Bearer ${accessToken}`,
          'Content-Type': 'application/json'
       }
    });
@@ -171,9 +187,14 @@ async function closeTicket(ticketId) {
    }
 }
 
+
+
 async function getTicketConversations(ticketId) {
-   const conversationsURL = `https://${domain}.freshdesk.com/api/v2/tickets/${ticketId}?include=conversations`;
-   const response = await fetch(conversationsURL, {
+   const domain = "ksolutions";
+   const apiKey = "4vuN2JgVpyew1WpnMgJ";
+   const url = `https://${domain}.freshdesk.com/api/v2/tickets/${ticketId}?include=conversations`;
+
+   const response = await fetch(url, {
       method: 'GET',
       headers: {
          'Authorization': `Basic ${btoa(apiKey + ":")}` // Encoding API key for Basic Auth
